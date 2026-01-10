@@ -211,8 +211,33 @@ class Table:
 
         return matching_rows
 
-    def update(self):
-        pass
+    def update(
+        self,
+        set_values: Dict[str, Any],
+        where_clause: Optional[Dict[str, Any]] = None,
+    ) -> int:
+        """Update rows in the table"""
+        updated_count = 0
+
+        for i, row in enumerate(self.rows):
+            if self._matches_where_clause(row, where_clause):
+                # Remove from indexes first
+                self._remove_from_indexes(row, i)
+
+                # Update the row
+                updated_row = row.copy()
+                updated_row.update(set_values)
+
+                # Validate the updated row
+                validated_row = self._validate_row(updated_row)
+                self.rows[i] = validated_row
+
+                # Update indexes
+                self._update_indexes(validated_row, i)
+
+                updated_count += 1
+
+        return updated_count
 
     def delete(self):
         pass

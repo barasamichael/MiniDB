@@ -70,15 +70,28 @@ class Column:
 
     def to_dict(self) -> Dict:
         """Convert column to dictionary for serialization"""
-        pass
+        return {
+            "name": self.name,
+            "data_type": self.data_type,
+            "primary_key": self.primary_key,
+            "unique": self.unique,
+            "nullable": self.nullable,
+        }
 
     @classmethod
     def from_dict(cls, data: Dict):
         """Create column from dictionary"""
-        pass
+        return cls(
+            data["name"],
+            data["data_type"],
+            data["primary_key"],
+            data["unique"],
+            data["nullable"],
+        )
 
 
 class Table:
     """Represents a database table with schema and data"""
 
-    pass
+    def __init__(self, name):
+        pass

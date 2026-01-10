@@ -171,6 +171,7 @@ class Table:
                     )
 
     def insert(self, row: Dict[str, Any]) -> bool:
+        """Insert a row into the table"""
         validated_row = self._validate_row(row)
 
         # Add the new row
@@ -187,7 +188,23 @@ class Table:
         columns: Optional[List[str]] = None,
         where_clause: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        pass
+        """Select rows from the table"""
+        # If no columns specified, select all
+        if columns is None:
+            columns = self.column_order
+
+        # Validate columns
+        for column in columns:
+            if column not in self.columns and column != "*":
+                raise ValueError(f"Unknown column: {column}")
+
+        if columns == ["*"]:
+            columns = self.column_order
+
+        # Get matching rows
+        # matching_rows = []
+        for row in self.rows:
+            pass
 
     def update(self):
         pass
@@ -197,6 +214,29 @@ class Table:
 
     def to_dict(self) -> Dict:
         pass
+
+    def _rebuild_indexes(self):
+        """Rebuild all indexes after deletion"""
+        pass
+
+    def _matches_where_clause(
+        self, row: Dict[str, Any], where_clause: Optional[Dict[str, Any]]
+    ) -> bool:
+        """Check if a row matches the where clause"""
+        if where_clause is None:
+            return True
+
+        for column_name, expected_value in where_clause.items():
+            if column_name not in self.columns:
+                raise ValueError(
+                    f"Unknown column in WHERE clause {column_name}"
+                )
+
+            actual_value = row.get(column_name)
+            if actual_value != expected_value:
+                return False
+
+        return True
 
     @classmethod
     def from_dict(cls, data: Dict):

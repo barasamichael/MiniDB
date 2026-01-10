@@ -8,8 +8,6 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-# from typing import Union
-
 
 class Column:
     """Represents a column in a table with type and constraints"""

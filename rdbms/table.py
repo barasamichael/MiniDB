@@ -42,7 +42,7 @@ class Column:
 
         try:
             if self.data_type == "INT":
-                return int(value)
+                return int(float(value))
 
             elif self.data_type in ["TEXT", "VARCHAR"]:
                 return str(value)
@@ -209,6 +209,13 @@ class Table:
         if columns == ["*"]:
             columns = self.column_order
 
+        # Validate where clause columns
+        if where_clause is not None:
+            for column_name in where_clause.keys():
+                if column_name not in self.columns:
+                    raise ValueError(
+                        f"Unknown column in WHERE clause: {column_name}")
+
         # Get matching rows
         matching_rows = []
         for row in self.rows:
@@ -286,7 +293,7 @@ class Table:
         for column_name, expected_value in where_clause.items():
             if column_name not in self.columns:
                 raise ValueError(
-                    f"Unknown column in WHERE clause {column_name}"
+                    f"Unknown column in WHERE clause: {column_name}"
                 )
 
             actual_value = row.get(column_name)
@@ -328,4 +335,4 @@ class Table:
             "rows": self.rows,
             "primary_key": self.primary_key,
             "unique_columns": list(self.unique_columns),
-      }
+        }

@@ -6,9 +6,9 @@ Handles schema definition, data validation, and basic operations
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 
 # from typing import Union
-# from typing import Optional
 
 
 class Column:
@@ -170,10 +170,23 @@ class Table:
                         f"Duplicate value '{validated_value}' for {constraint_type}"
                     )
 
-    def insert(self):
-        pass
+    def insert(self, row: Dict[str, Any]) -> bool:
+        validated_row = self._validate_row(row)
 
-    def select(self):
+        # Add the new row
+        row_index = len(self.rows)
+        self.rows.append(validated_row)
+
+        # Update indexes
+        self._update_indexes(validated_row, row_index)
+
+        return True
+
+    def select(
+        self,
+        columns: Optional[List[str]] = None,
+        where_clause: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         pass
 
     def update(self):

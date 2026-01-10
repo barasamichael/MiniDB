@@ -57,6 +57,9 @@ class Column:
                 if str(value).lower() in ["false", "0", "no"]:
                     return False
 
+                elif str(value).lower() in ["true", "1", "yes"]:
+                    return True
+
                 else:
                     raise ValueError(f"Invalid boolean value: {value}")
 
@@ -65,7 +68,7 @@ class Column:
         except (ValueError, TypeError):
             raise ValueError(
                 f"Invalid value '{value}' for column '{self.name}' of type "
-                + "{self.data_type}"
+                + f"{self.data_type}"
             )
 
     def to_dict(self) -> Dict:
@@ -109,6 +112,9 @@ class Table:
                 if self.primary_key:
                     raise ValueError("Table can have only one primary key")
                 self.primary_key = column.name
+                self.unique_columns.add(column.name)
+
+            if column.unique:
                 self.unique_columns.add(column.name)
 
         # Create indexes for primary key and unique columns
@@ -169,6 +175,8 @@ class Table:
                     raise ValueError(
                         f"Duplicate value '{validated_value}' for {constraint_type}"
                     )
+
+        return validated_row
 
     def insert(self, row: Dict[str, Any]) -> bool:
         """Insert a row into the table"""
@@ -289,7 +297,14 @@ class Table:
 
     @classmethod
     def from_dict(cls, data: Dict):
-        pass
+        columns = [Column.from_dict(col_data) for col_data in data["columns"]]
+        table = cls(data["name"], columns)
+        table.rows = data["rows"]
+        table.column_order = data["column_order"]
+        table.primary_key = data["primary_key"]
+        table.unique_columns = set(data["unique_columns"])
+        table._rebuild_indexes()
+        return table
 
     def get_row_count(self) -> int:
         """Get the number of rows in the table"""

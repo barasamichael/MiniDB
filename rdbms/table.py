@@ -5,8 +5,7 @@ Handles schema definition, data validation, and basic operations
 
 from typing import Any
 from typing import Dict
-
-# from typing import List
+from typing import List
 # from typing import Union
 # from typing import Optional
 
@@ -93,5 +92,5 @@ class Column:
 class Table:
     """Represents a database table with schema and data"""
 
-    def __init__(self, name):
+    def __init__(self, name: str, columns: List[Column]):
         pass

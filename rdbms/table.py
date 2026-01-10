@@ -239,15 +239,37 @@ class Table:
 
         return updated_count
 
-    def delete(self):
-        pass
+    def delete(self, where_clause: Optional[Dict[str, Any]] = None) -> int:
+        """Delete rows from the table"""
+        deleted_count = 0
+
+        # Find rows to delete (in reverse order to avoid indexing issues)
+        rows_to_delete = []
+        for i, row in enumerate(self.rows):
+            if self._matches_where_clause(row, where_clause):
+                rows_to_delete.append(i)
+
+        # Delete rows in reverse order
+        for i in reversed(rows_to_delete):
+            self._remove_from_indexes(self.rows[i], i)
+            del self.rows[i]
+            deleted_count += 1
+
+        # Rebuild indexes with correct row indices
+        self._rebuild_indexes()
+
+        return deleted_count
 
     def to_dict(self) -> Dict:
         pass
 
     def _rebuild_indexes(self):
         """Rebuild all indexes after deletion"""
-        pass
+        for column_name in self.indexes:
+            self.indexes[column_name] = {}
+
+        for i, row in enumerate(self.rows):
+            self._update_indexes(row, i)
 
     def _matches_where_clause(
         self, row: Dict[str, Any], where_clause: Optional[Dict[str, Any]]

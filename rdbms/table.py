@@ -202,9 +202,14 @@ class Table:
             columns = self.column_order
 
         # Get matching rows
-        # matching_rows = []
+        matching_rows = []
         for row in self.rows:
-            pass
+            if self._matches_where_clause(row, where_clause):
+                # Project only requested columns
+                projected_row = {column: row.get(column) for column in columns}
+                matching_rows.append(projected_row)
+
+        return matching_rows
 
     def update(self):
         pass

@@ -35,7 +35,38 @@ class Column:
 
     def validate_value(self, value: Any) -> Any:
         """Validate and convert value according to column type"""
-        pass
+        if value is None:
+            if not self.nullable:
+                raise ValueError(f"Column '{self.name}' cannot be NULL")
+            return None
+
+        try:
+            if self.data_type == "INT":
+                return int(value)
+
+            elif self.data_type in ["TEXT", "VARCHAR"]:
+                return str(value)
+
+            elif self.data_type == "REAL":
+                return float(value)
+
+            elif self.data_type == "BOOLEAN":
+                if isinstance(value, bool):
+                    return value
+
+                if str(value).lower() in ["false", "0", "no"]:
+                    return False
+
+                else:
+                    raise ValueError(f"Invalid boolean value: {value}")
+
+            else:
+                return value
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"Invalid value '{value}' for column '{self.name}' of type "
+                + "{self.data_type}"
+            )
 
     def to_dict(self) -> Dict:
         """Convert column to dictionary for serialization"""

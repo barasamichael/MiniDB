@@ -119,14 +119,56 @@ class Table:
         for column_name in self.unique_columns:
             self.indexes[column_name] = {}
 
-    def _update_indexes(self):
-        pass
+    def _update_indexes(self, row: Dict[str, Any], row_index: int):
+        """Update indexes when a row is added"""
+        for column_name in self.indexes:
+            value = row.get(column_name)
 
-    def _remove_from_indexes(self):
-        pass
+            if value is not None:
+                if value not in self.indexes[column_name]:
+                    self.indexes[column_name][value] = []
 
-    def _validate_row(self):
-        pass
+                self.indexes[column_name][value].append(row_index)
+
+    def _remove_from_indexes(self, row: Dict[str, Any], row_index: int):
+        """Remove row from indexes when deleted"""
+        for column_name in self.indexes:
+            value = row.get(column_name)
+
+            if value is not None and value in self.indexes[column_name]:
+                self.indexes[column_name][value].remove(row_index)
+                if not self.indexes[column_name][value]:
+                    del self.indexes[column_name][value]
+
+    def _validate_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate a row against the table schema"""
+        validated_row = {}
+
+        # Check for unknown columns
+        for column_name in row:
+            if column_name not in self.columns:
+                raise ValueError(f"Unknown column: {column_name}")
+
+        # Validate each column
+        for column_name, column in self.columns.items():
+            value = row.get(column_name)
+            validated_value = column.validate_value(value)
+            validated_row[column_name] = validated_value
+
+            # Check unique constraints
+            if (
+                validated_value is not None
+                and column_name in self.unique_columns
+            ):
+                if validated_value in self.indexes.get(column_name, {}):
+                    constraint_type = (
+                        "primary key"
+                        if column_name == self.primary_key
+                        else "unique"
+                    )
+                    raise ValueError(
+                        f"Duplicate value '{validated_value}' for {constraint_type}"
+                    )
 
     def insert(self):
         pass

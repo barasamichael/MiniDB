@@ -260,9 +260,6 @@ class Table:
 
         return deleted_count
 
-    def to_dict(self) -> Dict:
-        pass
-
     def _rebuild_indexes(self):
         """Rebuild all indexes after deletion"""
         for column_name in self.indexes:
@@ -293,3 +290,27 @@ class Table:
     @classmethod
     def from_dict(cls, data: Dict):
         pass
+
+    def get_row_count(self) -> int:
+        """Get the number of rows in the table"""
+        return len(self.rows)
+
+    def get_schema(self) -> Dict:
+        """Get table schema information"""
+        return {
+            "name": self.name,
+            "columns": [column.to_dict() for column in self.columns.values()],
+            "primary_key": self.primary_key,
+            "row_count": len(self.rows),
+        }
+
+    def to_dict(self) -> Dict:
+        """Convert table to dictionary for serialization"""
+        return {
+            "name": self.name,
+            "columns": [column.to_dict() for column in self.columns.values()],
+            "column_order": self.column_order,
+            "rows": self.rows,
+            "primary_key": self.primary_key,
+            "unique_columns": list(self.unique_columns),
+      }

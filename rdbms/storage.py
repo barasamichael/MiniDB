@@ -4,6 +4,7 @@ Handles persistence, file I/O, and data serialization
 """
 import json
 import time
+import pickle
 
 # import shutil
 import threading
@@ -67,8 +68,58 @@ class StorageEngine:
         with open(self.metadata_file, "w") as file:
             json.dump(self.metadata, file, indent=2)
 
-    def save_table(self) -> bool:
-        pass
+    def _get_table_filename(self, table_name: str) -> Path:
+        """Get the filename for a table's data file"""
+        extension = ".json" if self.storage_format == "json" else ".pkl"
+        return self.data_dir / f"table_{table_name}{extension}"
+
+    def save_table(self, table_name: str, table_data: Dict) -> bool:
+        """
+        Save table data to disk
+
+        Args:
+            table_name: Name of the table
+            table_data: Table data as dictionary
+
+        Returns:
+            True if successful
+        """
+        with self._lock:
+            try:
+                filename = self._get_table_filename(table_name)
+
+                if self.storage_format == "json":
+                    with open(filename, "w") as file:
+                        json.dump(table_data, file, indent=2, default=str)
+
+                else:
+                    with open(filename, "wb") as file:
+                        pickle.dump(table_data, file)
+
+                self.metadata["tables"][table_name] = {
+                    "filename": str(filename),
+                    "created": time.time()
+                    if table_name not in self.metadata["tables"]
+                    else self.metadata["tables"][table_name].get(
+                        "created", time.time()
+                    ),
+                    "last_modified": time.time(),
+                    "row_count": len(table_data.get("rows", [])),
+                    "size_bytes": filename.stat().st_size
+                    if filename.exists()
+                    else 0,
+                }
+
+                if table_name not in [
+                    table for table in self.metadata["tables"]
+                ]:
+                    self.metadata["table_count"] += 1
+
+                self._save_metadata()
+                return True
+
+            except Exception as e:
+                print(e.str())
 
     def load_table(self) -> bool:
         pass

@@ -6,6 +6,7 @@ Handles schema definition, data validation, and basic operations
 from typing import Any
 from typing import Dict
 from typing import List
+
 # from typing import Union
 # from typing import Optional
 
@@ -93,4 +94,55 @@ class Table:
     """Represents a database table with schema and data"""
 
     def __init__(self, name: str, columns: List[Column]):
+        self.name = name
+        self.columns = {column.name: column for column in columns}
+        self.column_order = [column.name for column in columns]
+        self.rows: List[Dict[str, Any]] = []
+        self.indexes: Dict[str, Dict[Any, List[int]]] = {}
+
+        # Identify primary key and unique columns
+        self.primary_key = None
+        self.unique_columns = set()
+
+        for column in columns:
+            if column.primary_key:
+                if self.primary_key:
+                    raise ValueError("Table can have only one primary key")
+                self.primary_key = column.name
+                self.unique_columns.add(column.name)
+
+        # Create indexes for primary key and unique columns
+        self._create_indexes()
+
+    def _create_indexes(self):
+        """Create indexes for primary key and unique columns"""
+        for column_name in self.unique_columns:
+            self.indexes[column_name] = {}
+
+    def _update_indexes(self):
+        pass
+
+    def _remove_from_indexes(self):
+        pass
+
+    def _validate_row(self):
+        pass
+
+    def insert(self):
+        pass
+
+    def select(self):
+        pass
+
+    def update(self):
+        pass
+
+    def delete(self):
+        pass
+
+    def to_dict(self) -> Dict:
+        pass
+
+    @classmethod
+    def from_dict(cls, data: Dict):
         pass

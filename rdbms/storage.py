@@ -245,7 +245,7 @@ class StorageEngine:
     def restore_database(self, backup_path: str) -> bool:
         """
         Restore database from backup
-        
+
         Args:
             backup_path: Path to backup directory
 
@@ -278,12 +278,29 @@ class StorageEngine:
             print(f"Error restoring from backup: {e}")
             return False
 
+    def compact_database(self) -> bool:
+        """
+        Compact database by rewriting all table files
+        This can help reduce file fragmentation and size
+        """
+        try:
+            with self._lock():
+                for table_name in self.list_tables():
+                    table_data = self.load_table(table_name)
+                    if table_data:
+                        self.save_table(table_name, table_data)
 
-    def compact_database(self):
-        pass
+                return True
+
+        except Exception as e:
+            print(f"Error compacting database: {e}")
+            return False
 
     def close(self):
-        pass
+        """Close storage engine and clean up resources"""
+        with self._lock():
+            # Save any pending metadata changes
+            self._save_metadata()
 
 
 class MemoryStorage:

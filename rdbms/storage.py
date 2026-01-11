@@ -242,8 +242,42 @@ class StorageEngine:
             print(f"Error creating backup: {e}")
             return False
 
-    def restore_database(self):
-        pass
+    def restore_database(self, backup_path: str) -> bool:
+        """
+        Restore database from backup
+        
+        Args:
+            backup_path: Path to backup directory
+
+        Returns:
+            True if successful
+        """
+        try:
+            backup_dir = Path(backup_path)
+
+            if not backup_dir.exists():
+                return False
+
+            # Clear the current data
+            if self.data_dir.exists():
+                shutil.rmtree(self.data_dir)
+
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copy backup files
+            for item in backup_dir.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, self.data_dir / item.name)
+
+            # Reload metadata
+            self._init_metadata()
+
+            return True
+
+        except Exception as e:
+            print(f"Error restoring from backup: {e}")
+            return False
+
 
     def compact_database(self):
         pass

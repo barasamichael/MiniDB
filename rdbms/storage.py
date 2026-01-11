@@ -306,4 +306,66 @@ class StorageEngine:
 class MemoryStorage:
     """In-memory storage for testing or temporary databases"""
 
-    pass
+    def __init__(self):
+        self.tables: Dict[str, Dict] = {}
+        self.metadata = {
+            "version": "1.0",
+            "created": time.time(),
+            "storage_format": "memory",
+            "table_count": 0,
+        }
+
+    def save_table(self, table_name: str, table_data: Dict) -> bool:
+        """Save table data in memory"""
+        if table_name not in self.tables:
+            self.metadata["table_count"] += 1
+
+        self.tables[table_name] = table_data.copy()
+        return True
+
+    def load_table(self, table_name: str) -> Optional[Dict]:
+        """Load table data from memory"""
+        return self.tables.get(table_name)
+
+    def delete_table(self, table_name: str) -> bool:
+        """Delete table from memory"""
+        if table_name in self.tables:
+            del self.tables[table_name]
+            self.metadata["table_count"] -= 1
+            return True
+        return False
+
+    def list_tables(self) -> List[str]:
+        """Get list of all table names"""
+        return list(self.tables.keys())
+
+    def table_exists(self, table_name: str) -> bool:
+        """Check if a table exists"""
+        return table_name in self.tables
+
+    def get_table_info(self, table_name: str) -> Optional[Dict]:
+        """Get metadata information about a table"""
+        if table_name in self.tables:
+            return {
+                "row_count": len(self.tables[table_name].get("rows", [])),
+                "created": time.time(),
+                "last_modified": time.time(),
+            }
+        return None
+
+    def get_database_stats(self) -> Dict:
+        """Get overall database statistics"""
+        total_rows = sum(
+            len(table.get("rows", [])) for table in self.tables.values()
+        )
+
+        return {
+            "table_count": self.metadata["table_count"],
+            "total_rows": total_rows,
+            "storage_format": "memory",
+            "created": self.metadata["created"],
+        }
+
+    def close(self):
+        """Close memory storage"""
+        pass

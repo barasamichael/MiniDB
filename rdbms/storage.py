@@ -6,7 +6,7 @@ import json
 import time
 import pickle
 
-# import shutil
+import shutil
 import threading
 from pathlib import Path
 
@@ -219,8 +219,28 @@ class StorageEngine:
             "last_modified": self.metadata["last_modified"],
         }
 
-    def backup_database(self):
-        pass
+    def backup_database(self, backup_path: str) -> bool:
+        """
+        Create a backup of the entire database
+
+        Args:
+            backup_path: Path to backup directory
+
+        Returns:
+            True if successful
+        """
+        try:
+            backup_dir = Path(backup_path)
+            backup_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copy all files
+            for item in self.data_dir.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, backup_dir / item.name)
+
+        except Exception as e:
+            print(f"Error creating backup: {e}")
+            return False
 
     def restore_database(self):
         pass

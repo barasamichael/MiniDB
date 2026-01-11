@@ -9,8 +9,10 @@ import pickle
 # import shutil
 import threading
 from pathlib import Path
+
 from typing import List
 from typing import Dict
+from typing import Optional
 
 
 class StorageEngine:
@@ -119,10 +121,40 @@ class StorageEngine:
                 return True
 
             except Exception as e:
-                print(e.str())
+                print(f"Error saving table {table_name}: {e}")
+                return False
 
-    def load_table(self) -> bool:
-        pass
+    def load_table(self, table_name: str) -> Optional[Dict]:
+        """
+        Load table data from disk
+
+        Args:
+            table_name: Name of the table to load
+
+        Returns:
+            Table data as dictionary or None if not found
+        """
+        with self._lock:
+            try:
+                if table_name not in self.metadata["tables"]:
+                    return None
+
+                filename = self._get_table_filename(table_name)
+
+                if not filename.exists():
+                    return None
+
+                if self.storage_format == "json":
+                    with open(filename, "r") as file:
+                        return json.load(file)
+
+                else:
+                    with open(filename, "rb") as file:
+                        return pickle.load(file)
+
+            except Exception as e:
+                print(f"Error loading table {table_name}: {e}")
+                return None
 
     def delete_table(self) -> bool:
         pass

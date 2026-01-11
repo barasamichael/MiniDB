@@ -189,16 +189,35 @@ class StorageEngine:
                 return False
 
     def list_tables(self) -> List(str):
-        pass
+        """Get list of all table names"""
+        return list(self.metadata["tables"].keys())
 
-    def table_exists(self) -> bool:
-        pass
+    def table_exists(self, table_name: str) -> bool:
+        """Check if a table exists"""
+        return table_name in self.metadata["tables"]
 
-    def get_table_info(self):
-        pass
+    def get_table_info(self, table_name: str) -> Optional[Dict]:
+        """Get metadata information about a table"""
+        return self.metadata["tables"].get(table_name)
 
-    def get_database_stats(self):
-        pass
+    def get_database_stats(self) -> Dict:
+        """Get overall database statistics"""
+        total_size = 0
+        total_rows = 0
+
+        for table_info in self.metadata["tables"].values():
+            total_size += table_info.get("size_bytes", 0)
+            total_rows += table_info.get("row_count", 0)
+
+        return {
+            "table_count": self.metadata["table_count"],
+            "total_rows": total_rows,
+            "total_size_bytes": total_size,
+            "storage_format": self.storage_format,
+            "data_directory": str(self.data_dir),
+            "created": self.metadata["created"],
+            "last_modified": self.metadata["last_modified"],
+        }
 
     def backup_database(self):
         pass

@@ -156,8 +156,37 @@ class StorageEngine:
                 print(f"Error loading table {table_name}: {e}")
                 return None
 
-    def delete_table(self) -> bool:
-        pass
+    def delete_table(self, table_name: str) -> bool:
+        """
+        Delete a table and its data file
+
+        Args:
+            table_name: Name of the table to delete
+
+        Returns:
+            True if successful
+        """
+        with self._lock:
+            try:
+                if table_name not in self.metadata["tables"]:
+                    return False
+
+                filename = self._get_table_filename(table_name)
+
+                # Delete the file
+                if filename.exists():
+                    filename.unlink()
+
+                # Update the metadata
+                del self.metadata["tables"][table_name]
+                self.metadata["table_count"] -= 1
+                self._save_metadata()
+
+                return True
+
+            except Exception as e:
+                print(f"Error deleting table {table_name}: {e}")
+                return False
 
     def list_tables(self) -> List(str):
         pass

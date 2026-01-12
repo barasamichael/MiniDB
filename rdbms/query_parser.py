@@ -2,7 +2,7 @@
 SQL query parser for simple RDBMS
 Parser basic SQL statements into structured data
 """
-# import re
+import re
 from typing import Any
 from typing import Dict
 from typing import List
@@ -152,7 +152,57 @@ class QueryParser:
 
         def _parse_create_table(self, query: str) -> ParsedQuery:
             """Parse CREATE TABLE statement"""
-            pass
+            # Pattern: CREATE TABLE table_name (col1 type constraints,
+            # col2 type constraints, ...)
+            match = re.match(
+                r"CREATE TABLE (\w+) \((.+)\)", query, re.IGNORECASE
+            )
+            if not match:
+                raise ValueError("Invalid CREATE TABLE syntax")
+
+            table_name = match.group(1)
+            columns_str = match.group(2)
+
+            columns = []
+            # Split by comma, but be careful of constraints
+            column_definitions = self._split_column_definitions(columns_str)
+
+            for column_definition in column_definitions:
+                column_information = self._parse_column_definition(
+                    column_definition.strip()
+                )
+                columns.append(column_information)
+
+            return ParsedQuery(
+                query_type="CREATE_TABLE",
+                table_name=table_name,
+                columns=columns,
+            )
+
+        def _split_column_definitions(self, columns_string: str) -> List[str]:
+            """Split column definitions by comma, respecting parentheses"""
+            columns = []
+            current_column = ""
+            parenthesis_count = 0
+
+            for character in columns_string:
+                if character == "(":
+                    parenthesis_count += 1
+
+                elif character == ")":
+                    parenthesis_count -= 1
+
+                elif character == "," and parenthesis_count == 0:
+                    columns.append(current_column.strip())
+                    current_column = ""
+                    continue
+
+                current_column += character
+
+            if current_column.strip():
+                columns.append(current_column.strip())
+
+            return columns
 
         def _parse_insert(self, query: str) -> ParsedQuery:
             """Parse INSERT INTO statement"""

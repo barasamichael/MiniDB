@@ -303,12 +303,58 @@ class QueryParser:
                 values=rows,
             )
 
+        def _parse_values_list(self, values_string: str) -> List[List[Any]]:
+            """Parse VALUES list: (value1, value2), (value3, value4), ..."""
+            values_list = []
+
+            # Find all value tuples
+            tuple_pattern = r"\(([^)]+)\)"
+            matches = re.findall(tuple_pattern, values_string)
+
+            for match in matches:
+                values = []
+                for value in match.split(","):
+                    value = value.strip()
+                    parsed_value = self._parse_value(value)
+                    values.append(parsed_value)
+                values_list.append(values)
+
+        def _parse_value(self, value: str) -> Any:
+            """Parse a single value (string, number, etc.)"""
+            value = value.strip()
+
+            # NULL
+            if value.upper() == "NULL":
+                return None
+
+            # String (quoted)
+            if (value.startswith("'") and value.endswith("'")) or (
+                value.startswith('"') and value.endswith('"')
+            ):
+                return value[1:-1]
+
+            # Boolean
+            if value.upper() in ['TRUE', 'FALSE']:
+                return value.upper() == 'TRUE'
+
+            # Number
+            try:
+                if '.' in value:
+                    return float(value)
+
+                else:
+                    return int(value)
+
+            except ValueError:
+                # Default to string
+                return value
+
         def _parse_select(self, query: str) -> ParsedQuery:
             """Parse SELECT query"""
             pass
 
         def _parse_update(self, query: str) -> ParsedQuery:
-            """Parse UPDATE query"""
+            """Pars UPDATE query"""
             pass
 
         def _parse_delete(self, query: str) -> ParsedQuery:

@@ -12,8 +12,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rdbms.table import Table
 from rdbms.table import Column
 
-# Add the parent directory to the path to import the rdbms module
-
 
 class TestColumn:
     """Test cases for the Column class"""
@@ -35,7 +33,7 @@ class TestColumn:
         assert col.data_type == "INT"
         assert col.primary_key == True
         assert col.unique == True
-        assert col.nullable == False  # Should be False due to primary_key=True
+        assert col.nullable == False
 
     def test_column_primary_key_sets_nullable_false(self):
         """Test that primary key automatically sets nullable to False"""

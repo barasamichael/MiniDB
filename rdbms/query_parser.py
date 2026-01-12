@@ -108,4 +108,72 @@ class QueryParser:
             Returns:
                 ParsedQuery object
             """
+            query = query.strip()
+            if not query:
+                raise ValueError("Empty query")
+
+            # Remove trailing semicolon
+            if query.endswith(";"):
+                query = query[:-1]
+
+            # Normalize whitespace and convert to uppercase for parsing
+            normalized_query = " ".join(query.split())
+            query_upper = normalized_query.upper()
+
+            # Determine query type
+            if query_upper.startswith("CREATE TABLE"):
+                return self._parse_create_table(normalized_query)
+
+            elif query_upper.startswith("INSERT_INTO"):
+                return self._parse_insert(normalized_query)
+
+            elif query_upper.startswith("SELECT"):
+                return self._parse_select(normalized_query)
+
+            elif query_upper.startswith("UPDATE"):
+                return self._parse_update(normalized_query)
+
+            elif query_upper.startswith("DELETE FROM"):
+                return self._parse_delete(normalized_query)
+
+            elif query_upper.startswith("DROP TABLE"):
+                return self._parse_drop_table(normalized_query)
+
+            elif query_upper == "SHOW TABLES":
+                return ParsedQuery(query_type="SHOW TABLES")
+
+            elif query_upper.startswith("DESCRIBE") or query_upper.startswith(
+                "DESC"
+            ):
+                return self._parse_describe(normalized_query)
+
+            else:
+                raise ValueError(f"Unsupported query type: {query}")
+
+        def _parse_create_table(self, query: str) -> ParsedQuery:
+            """Parse CREATE TABLE statement"""
+            pass
+
+        def _parse_insert(self, query: str) -> ParsedQuery:
+            """Parse INSERT INTO statement"""
+            pass
+
+        def _parse_select(self, query: str) -> ParsedQuery:
+            """Parse SELECT query"""
+            pass
+
+        def _parse_update(self, query: str) -> ParsedQuery:
+            """Parse UPDATE query"""
+            pass
+
+        def _parse_delete(self, query: str) -> ParsedQuery:
+            """Parse DELETE query"""
+            pass
+
+        def _parse_drop_table(self, query: str) -> ParsedQuery:
+            """Parse DROP TABLE query"""
+            pass
+
+        def _parse_describe(self, query: str) -> ParsedQuery:
+            """Parse DESCRIBE query"""
             pass

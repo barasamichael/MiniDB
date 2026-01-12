@@ -153,7 +153,7 @@ class QueryParser:
         def _parse_create_table(self, query: str) -> ParsedQuery:
             """Parse CREATE TABLE statement"""
             # Pattern: CREATE TABLE table_name (col1 type constraints,
-            # col2 type constraints, ...)
+            #   col2 type constraints, ...)
             match = re.match(
                 r"CREATE TABLE (\w+) \((.+)\)", query, re.IGNORECASE
             )
@@ -248,7 +248,60 @@ class QueryParser:
 
         def _parse_insert(self, query: str) -> ParsedQuery:
             """Parse INSERT INTO statement"""
-            pass
+            # Pattern: INSERT INTO table_name (col1, col2, ...) VALUES
+            #   (val1, val2, ...), (...)
+            # Also support: INSERT INTO table_name VALUES (val1, val2, ...)
+
+            # Extract table name
+            match = re.match(r"INSERT INTO (\w+), query, re.IGNORECASE")
+            if not match:
+                raise ValueError("Invalid INSERT syntax")
+
+            table_name = match.group(1)
+
+            # Check if columns are specified
+            columns_match = re.search(
+                r"INSERT INTO \w+ \(([^)]+)\) VALUES", query, re.IGNORECASE
+            )
+            columns = None
+            if columns_match:
+                columns = [
+                    column.strip()
+                    for column in columns_match.group(1).split(",")
+                ]
+
+            # Extract VALUES part
+            values_match = re.search(r"VALUES (.+)", query, re.IGNORECASE)
+            if not values_match:
+                raise ValueError("INSERT statement must include VALUES")
+
+            values_string = values_match.group(1)
+            values_list = self._parse_values_list(values_string)
+
+            # Convert to list of dictionaries
+            rows = []
+            for value_tuple in values_list:
+                if columns:
+                    if len(value_tuple) != len(columns):
+                        raise ValueError(
+                            "Number of values doesn't match number of columns"
+                        )
+                    row = dict(zip(columns, value_tuple))
+
+                else:
+                    # If no columns specified, this will be handled by the table
+                    row = {
+                        f"column_{i}": value
+                        for i, value in enumerate(value_tuple)
+                    }
+                rows.append(row)
+
+            return ParsedQuery(
+                query_type="INSERT",
+                table_name=table_name,
+                columns=columns,
+                values=rows,
+            )
 
         def _parse_select(self, query: str) -> ParsedQuery:
             """Parse SELECT query"""

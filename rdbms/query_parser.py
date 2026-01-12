@@ -204,6 +204,48 @@ class QueryParser:
 
             return columns
 
+        def _parse_column_definition(
+            self, column_definition: str
+        ) -> Dict[str, Any]:
+            """Parse a single column definition"""
+            parts = column_definition.split()
+            if len(parts) < 2:
+                raise ValueError(
+                    f"Invalid column definition: {column_definition}"
+                )
+
+            column_name = parts[0]
+            data_type = parts[1].upper()
+
+            # Map data type
+            if data_type in self.data_types:
+                data_type = self.data_types[data_type]
+            else:
+                raise ValueError(f"Unsupported data type: {data_type}")
+
+            column_information = {
+                "name": column_name,
+                "type": data_type,
+                "primary_key": False,
+                "unique": False,
+                "nullable": True,
+            }
+
+            # Parse constraints
+            constraints_string = " ".join(parts[2:]).upper()
+
+            if "PRIMARY KEY" in constraints_string:
+                column_information["primary_key"] = True
+                column_information["nullable"] = False
+
+            if "UNIQUE" in constraints_string:
+                column_information["unique"] = True
+
+            if "NOT NULL" in constraints_string:
+                column_information["nullable"] = False
+
+            return column_information
+
         def _parse_insert(self, query: str) -> ParsedQuery:
             """Parse INSERT INTO statement"""
             pass

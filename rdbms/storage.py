@@ -64,7 +64,7 @@ class StorageEngine:
             "table_count": 0,
         }
 
-    def save_metadata(self):
+    def _save_metadata(self):
         """Save metadata to disk"""
         self.metadata["last_modified"] = time.time()
         with open(self.metadata_file, "w") as file:
@@ -98,24 +98,22 @@ class StorageEngine:
                     with open(filename, "wb") as file:
                         pickle.dump(table_data, file)
 
+                # Update metadata
+                is_new_table = table_name not in self.metadata["tables"]
+                if is_new_table:
+                    self.metadata["table_count"] += 1
+
                 self.metadata["tables"][table_name] = {
                     "filename": str(filename),
                     "created": time.time()
-                    if table_name not in self.metadata["tables"]
+                    if is_new_table
                     else self.metadata["tables"][table_name].get(
                         "created", time.time()
                     ),
                     "last_modified": time.time(),
                     "row_count": len(table_data.get("rows", [])),
-                    "size_bytes": filename.stat().st_size
-                    if filename.exists()
-                    else 0,
+                    "size_bytes": filename.stat().st_size,
                 }
-
-                if table_name not in [
-                    table for table in self.metadata["tables"]
-                ]:
-                    self.metadata["table_count"] += 1
 
                 self._save_metadata()
                 return True
@@ -188,7 +186,7 @@ class StorageEngine:
                 print(f"Error deleting table {table_name}: {e}")
                 return False
 
-    def list_tables(self) -> List(str):
+    def list_tables(self) -> List[str]:
         """Get list of all table names"""
         return list(self.metadata["tables"].keys())
 
@@ -238,6 +236,8 @@ class StorageEngine:
                 if item.is_file():
                     shutil.copy2(item, backup_dir / item.name)
 
+            return True
+
         except Exception as e:
             print(f"Error creating backup: {e}")
             return False
@@ -284,13 +284,16 @@ class StorageEngine:
         This can help reduce file fragmentation and size
         """
         try:
-            with self._lock():
-                for table_name in self.list_tables():
-                    table_data = self.load_table(table_name)
-                    if table_data:
-                        self.save_table(table_name, table_data)
+            # Get list of tables without lock to avoid deadlock
+            table_names = list(self.metadata["tables"].keys())
 
-                return True
+            for table_name in table_names:
+                # Load and save each table (this will compact it)
+                table_data = self.load_table(table_name)
+                if table_data:
+                    self.save_table(table_name, table_data)
+
+            return True
 
         except Exception as e:
             print(f"Error compacting database: {e}")
@@ -298,7 +301,7 @@ class StorageEngine:
 
     def close(self):
         """Close storage engine and clean up resources"""
-        with self._lock():
+        with self._lock:
             # Save any pending metadata changes
             self._save_metadata()
 
@@ -325,7 +328,14 @@ class MemoryStorage:
 
     def load_table(self, table_name: str) -> Optional[Dict]:
         """Load table data from memory"""
-        return self.tables.get(table_name)
+        table_data = self.tables.get(table_name)
+        if table_data is None:
+            return None
+
+        # Return a deep copy to prevent modifications to original data
+        import copy
+
+        return copy.deepcopy(table_data)
 
     def delete_table(self, table_name: str) -> bool:
         """Delete table from memory"""

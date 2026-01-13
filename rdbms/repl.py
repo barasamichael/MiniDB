@@ -1,10 +1,9 @@
 """
-Interactive REPL (Real-Eval-Print-Loop) for Pesapal RDBMS
+Interactive REPL (Real-Eval-Print-Loop) for MiniDB
 Command-line interface for executing SQL queries
 """
 
 import sys
-import os
 import readline
 import argparse
 from pathlib import Path
@@ -16,7 +15,7 @@ from query_parser import QueryParser
 
 
 class RDBMS_REPL:
-    """Interactive shell for the RDBMS"""
+    """Interactive shell for the MiniDB"""
 
     def __init__(
         self,
@@ -72,7 +71,7 @@ class RDBMS_REPL:
     def _print_welcome(self):
         """Print welcome message"""
         print("=" * 60)
-        print("Welcome to Pesapal RDBMS")
+        print("Welcome to MiniDB")
         print("=" * 60)
         print(f"Database: {self.db_name}")
         print(f"Storage: {self.database.storage.__class__.__name__}")
@@ -85,10 +84,10 @@ class RDBMS_REPL:
         print("  .restore  - Restore from backup")
         print("  .exit     - Exit REPL")
         print("=" * 60)
-    
+
     def _print_help(self):
         """Print help message"""
-        print("\nPesapal RDBMS Help")
+        print("\nMiniDB Help")
         print("-" * 40)
         print("\nSupported SQL Commands:")
         print("  CREATE TABLE name (col1 type constraints, col2 type, ...)")
@@ -100,13 +99,13 @@ class RDBMS_REPL:
         print("  DROP TABLE table")
         print("  SHOW TABLES")
         print("  DESCRIBE table")
-        
+
         print("\nData Types:")
         print("  INT, TEXT, VARCHAR, REAL, BOOLEAN")
-        
+
         print("\nConstraints:")
         print("  PRIMARY KEY, UNIQUE, NOT NULL")
-        
+
         print("\nREPL Commands:")
         print("  .help     - Show this help")
         print("  .tables   - List all tables")
@@ -114,7 +113,7 @@ class RDBMS_REPL:
         print("  .backup <path>   - Backup database")
         print("  .restore <path>  - Restore database")
         print("  .exit     - Exit REPL")
-        
+
         print("\nExamples:")
         print("  CREATE TABLE users (id INT PRIMARY KEY, name TEXT NOT NULL);")
         print("  INSERT INTO users VALUES (1, 'John'), (2, 'Jane');")
@@ -143,7 +142,7 @@ class RDBMS_REPL:
             self._show_stats()
             return True
 
-        elif command.startswith('.backup'):
+        elif command.startswith(".backup"):
             parts = command.split(maxsplit=1)
             if len(parts) > 1:
                 self._backup_database(parts[1])
@@ -153,7 +152,7 @@ class RDBMS_REPL:
 
             return True
 
-        elif command.startswith('.restore'):
+        elif command.startswith(".restore"):
             parts = command.split(maxsplit=1)
             if len(parts) > 1:
                 self._restore_database(parts[1])
@@ -163,38 +162,199 @@ class RDBMS_REPL:
 
             return True
 
-        elif command in ['.exit', '.quit']:
+        elif command in [".exit", ".quit"]:
             self._exit_repl()
             return True
 
         return False
 
     def _show_tables(self):
-        pass
+        """Show all tables"""
+        tables = self.database.list_tables()
+        if tables:
+            print(f"\nTables in {self.db_name}:")
+            print("-" * 30)
+            for i, table_name in enumerate(tables, 1):
+                table = self.database.get_table(table_name)
+                row_count = table.get_row_count() if table else 0
+                print(f"  {i}. {table_name} ({row_count} rows)")
+            print("-" * 30)
+
+        else:
+            print("No tables found")
 
     def _show_stats(self):
-        pass
+        """Show database statistics"""
+        stats = self.database.get_database_stats()
+        print(f"\nDatabase Statistics: {self.db_name}")
+        print("-" * 40)
+        print(f"Tables: {stats.get('table_count', 0)}")
+        print(f"Total rows: {stats.get('total_rows', 0)}")
+        print(f"Storage format: {stats.get('storage_format', 'unknown')}")
+        print(f"Data directory: {stats.get('data_directory', 'N/A')}")
+
+        if "total_size_bytes" in stats:
+            size_mb = stats["total_size_bytes"] / (1024 * 1024)
+            print(f"Total size: {size_mb:.2f} MB")
+
+        print("-" * 40)
 
     def _backup_database(self, backup_path: str):
-        pass
+        """Create database backup"""
+        try:
+            if self.database.backup(backup_path):
+                print(f"Database backed up to: {backup_path}")
+
+            else:
+                print(f"Failed to backup database to: {backup_path}")
+
+        except Exception as e:
+            print(f"Backup error: {e}")
 
     def _restore_database(self, backup_path: str):
-        pass
+        """Restore database from backup"""
+        try:
+            if self.database.restore(backup_path):
+                print(f"Database restored from: {backup_path}")
+
+            else:
+                print(f"Failed to restore database from: {backup_path}")
+
+        except Exception as e:
+            print(f"Restore error: {e}")
 
     def _exit_repl(self):
-        pass
+        print("Saving data...")
+        self.database.close()
+        self._save_history()
+        print("Goodbye!")
+
+        self.running = False
 
     def _execute_sql_query(self, query: str):
-        pass
+        """Execute SQL query and display results"""
+        try:
+            result = self.database.execute_query(query)
+
+            if result.success:
+                if result.data:
+                    # Format and display results in a nice table
+                    formatted_result = self.parser.format_query_result(result)
+                    print(f"\n{formatted_result}")
+
+                elif result.message:
+                    print(f"{result.message}")
+
+                else:
+                    print("Query executed successfully")
+
+            else:
+                print(f"Error: {result.error}")
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
     def _get_input(self) -> str:
-        pass
+        """Get input from user with prompt"""
+        try:
+            return input("pesapal_rdbms> ")
+
+        except EOFError:
+            # Handle Ctrl+D
+            self._exit_repl()
+            return ""
+
+        except KeyboardInterrupt:
+            # Handle Ctrl+C
+            print("\n(Use .exit to quit)")
+            return ""
 
     def run(self):
-        pass
+        while self.running:
+            try:
+                # Get user input
+                user_input = self._get_input().strip()
+
+                # Skip empty input
+                if not user_input:
+                    continue
+
+                # Handle REPL commands
+                if user_input.startswith("."):
+                    self._handle_repl_command(user_input)
+                    continue
+
+                # Handle SQL queries
+                self._execute_sql_query(user_input)
+
+            except KeyboardInterrupt:
+                print("\n(Use .exit to quit)")
+                continue
+
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                continue
+
 
 def main():
-    pass
+    """Main function"""
+    parser = argparse.ArgumentParser(
+        description="MiniDB - Interactive Database Shell"
+    )
+
+    parser.add_argument(
+        "--db-name",
+        default="pesapal_db",
+        help="Database name (default: pesapal_db)",
+    )
+
+    parser.add_argument(
+        "--storage-type",
+        choices=["file", "memory"],
+        default="file",
+        help="Storage type: file or memory (default: file)",
+    )
+
+    parser.add_argument(
+        "--data-dir",
+        default="data",
+        help="Data directory for file storage (default: data)",
+    )
+
+    parser.add_argument(
+        "--storage-format",
+        choices=["json", "pickle"],
+        default="json",
+        help="Storage format for file storage (default: json)",
+    )
+
+    parser.add_argument(
+        "--execute", "-e", help="Execute a single SQL query and exit"
+    )
+
+    args = parser.parse_args()
+
+    try:
+        # Initialize REPL
+        repl = RDBMS_REPL(args.db_name, args.storage_type, args.data_dir)
+
+        # If --execute is provided, run single query and exit
+        if args.execute:
+            print(f"Executing: {args.execute}")
+            repl._execute_sql_query(args.execute)
+            repl.database.close()
+            return
+
+        # Start interactive REPL
+        repl.run()
+
+    except KeyboardInterrupt:
+        print("\nGoodbye!")
+
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

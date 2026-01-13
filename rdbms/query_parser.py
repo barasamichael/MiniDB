@@ -334,12 +334,12 @@ class QueryParser:
                 return value[1:-1]
 
             # Boolean
-            if value.upper() in ['TRUE', 'FALSE']:
-                return value.upper() == 'TRUE'
+            if value.upper() in ["TRUE", "FALSE"]:
+                return value.upper() == "TRUE"
 
             # Number
             try:
-                if '.' in value:
+                if "." in value:
                     return float(value)
 
                 else:
@@ -351,20 +351,231 @@ class QueryParser:
 
         def _parse_select(self, query: str) -> ParsedQuery:
             """Parse SELECT query"""
-            pass
+            # Extract columns
+            select_match = re.match(r"SELECT (.+?) FROM", query, re.IGNORECASE)
+            if not select_match:
+                raise ValueError("Invalid SELECT syntax")
+
+            columns_string = select_match.group(1).strip()
+            if columns_string == "*":
+                columns = ["*"]
+
+            else:
+                columns = [
+                    column.strip() for column in columns_string.split(",")
+                ]
+
+            # Extract table names (handle JOINs)
+            from_match = re.search(r"FROM (\w+)", query, re.IGNORECASE)
+            if not from_match:
+                raise ValueError("SELECT statement must include FROM clause")
+
+            table_name = from_match.group(1)
+
+            # Check for JOIN
+            join_table = None
+            join_condition = None
+            join_match = re.search(
+                r"(?:INNER |LEFT |RIGHT )?JOIN (\w+) ON ([^WHERE]+)"
+            )
+
+            if join_match:
+                join_table = join_match.group(1)
+                join_on = join_match.group(2).strip()
+                join_condition = self._parse_join_condition(join_on)
+
+            # Parse WHERE clause
+            where_clause = self._parse_where_clause(query)
+
+            # Parse by ORDER BY (basic implementation)
+            order_by = None
+            order_match = re.search(
+                r"ORDER BY ([^LIMIT]+)", query, re.IGNORECASE
+            )
+            if order_match:
+                order_by = [
+                    column.strip() for column in order_match.group(1).split(",")
+                ]
+
+            # Parse LIMIT
+            limit = None
+            limit_match = re.search(r"LIMIT (\d+)", query, re.IGNORECASE)
+            if limit_match:
+                limit = int(limit_match.group(1))
+
+            return ParsedQuery(
+                query_type="SELECT",
+                table_name=table_name,
+                columns=columns,
+                join_table=join_table,
+                join_condition=join_condition,
+                where_clause=where_clause,
+                order_by=order_by,
+                limit=limit,
+            )
+
+        def _parse_join_condition(self, join_on: str) -> Dict[str, Any]:
+            """Parse JOIN ON condition"""
+            # Simple implementation: table1.col = table2.col
+            match = re.match(
+                r"(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)", join_on.strip()
+            )
+            if match:
+                return {
+                    "left_table": match.group(1),
+                    "left_column": match.group(2),
+                    "right_table": match.group(3),
+                    "right_column": match.group(4),
+                }
+
+            return {}
+
+        def _parse_where_clause(self, query: str) -> Optional[Dict[str, Any]]:
+            """Parse WHERE clause (basic implementation)"""
+            where_match = re.search(
+                r"WHERE (.+?)(?:\s+ORDER\s+BY|\s+LIMIT|\s+GROUP\s+BY|$)",
+                query,
+                re.IGNORECASE,
+            )
+            if not where_match:
+                return None
+
+            where_str = where_match.group(1).strip()
+
+            # Simple implementation: only handle AND conditions with equals
+            conditions = {}
+
+            # Split by AND
+            and_parts = re.split(r"\s+AND\s+", where_str, flags=re.IGNORECASE)
+
+            for part in and_parts:
+                # Handle simple equality: column = value
+                eq_match = re.match(r"(\w+(?:\.\w+)?)\s*=\s*(.+)", part.strip())
+                if eq_match:
+                    col_name = eq_match.group(1)
+                    value_str = eq_match.group(2).strip()
+                    value = self._parse_value(value_str)
+                    conditions[col_name] = value
+
+            return conditions if conditions else None
 
         def _parse_update(self, query: str) -> ParsedQuery:
-            """Pars UPDATE query"""
-            pass
+            """Parse UPDATE statement"""
+            # Pattern: UPDATE table_name SET col1=val1, col2=val2 WHERE condition
+            match = re.match(
+                r"UPDATE (\w+) SET (.+?)(?:\s+WHERE\s+(.+))?",
+                query,
+                re.IGNORECASE,
+            )
+            if not match:
+                raise ValueError("Invalid UPDATE syntax")
+
+            table_name = match.group(1)
+            set_str = match.group(2)
+
+            # Parse SET clause
+            set_values = {}
+            set_parts = [part.strip() for part in set_str.split(",")]
+
+            for part in set_parts:
+                eq_match = re.match(r"(\w+)\s*=\s*(.+)", part)
+                if eq_match:
+                    col_name = eq_match.group(1)
+                    value_str = eq_match.group(2).strip()
+                    value = self._parse_value(value_str)
+                    set_values[col_name] = value
+
+            # Parse WHERE clause
+            where_clause = self._parse_where_clause(query)
+
+            return ParsedQuery(
+                query_type="UPDATE",
+                table_name=table_name,
+                set_values=set_values,
+                where_clause=where_clause,
+            )
 
         def _parse_delete(self, query: str) -> ParsedQuery:
-            """Parse DELETE query"""
-            pass
+            """Parse DELETE statement"""
+            # Pattern: DELETE FROM table_name WHERE condition
+            match = re.match(
+                r"DELETE FROM (\w+)(?:\s+WHERE\s+(.+))?", query, re.IGNORECASE
+            )
+            if not match:
+                raise ValueError("Invalid DELETE syntax")
+
+            table_name = match.group(1)
+
+            # Parse WHERE clause
+            where_clause = self._parse_where_clause(query)
+
+            return ParsedQuery(
+                query_type="DELETE",
+                table_name=table_name,
+                where_clause=where_clause,
+            )
 
         def _parse_drop_table(self, query: str) -> ParsedQuery:
-            """Parse DROP TABLE query"""
-            pass
+            """Parse DROP TABLE statement"""
+            match = re.match(r"DROP TABLE (\w+)", query, re.IGNORECASE)
+            if not match:
+                raise ValueError("Invalid DROP TABLE syntax")
+
+            table_name = match.group(1)
+
+            return ParsedQuery(query_type="DROP_TABLE", table_name=table_name)
 
         def _parse_describe(self, query: str) -> ParsedQuery:
-            """Parse DESCRIBE query"""
-            pass
+            """Parse DESCRIBE statement"""
+            match = re.match(r"(?:DESCRIBE|DESC) (\w+)", query, re.IGNORECASE)
+            if not match:
+                raise ValueError("Invalid DESCRIBE syntax")
+
+            table_name = match.group(1)
+
+            return ParsedQuery(query_type="DESCRIBE", table_name=table_name)
+
+        def format_query_result(self, result: QueryResult) -> str:
+            """Format query result for display"""
+            if not result.success:
+                return f"Error: {result.error}"
+
+            if result.message:
+                return result.message
+
+            if not result.data:
+                return "No results"
+
+            # Format as table
+            if result.columns:
+                # Calculate column widths
+                col_widths = {}
+                for col in result.columns:
+                    col_widths[col] = max(
+                        len(str(col)),
+                        max(len(str(row.get(col, ""))) for row in result.data)
+                        if result.data
+                        else 0,
+                    )
+
+                # Create header
+                header = " | ".join(
+                    col.ljust(col_widths[col]) for col in result.columns
+                )
+                separator = "-" * len(header)
+
+                # Create rows
+                rows = []
+                for row in result.data:
+                    row_str = " | ".join(
+                        str(row.get(col, "")).ljust(col_widths[col])
+                        for col in result.columns
+                    )
+                    rows.append(row_str)
+
+                result_lines = [header, separator] + rows
+                result_lines.append(f"\n{len(result.data)} row(s) returned")
+
+                return "\n".join(result_lines)
+
+            return str(result.data)

@@ -135,7 +135,7 @@ class RDBMS_REPL:
             return True
 
         elif command == ".tables":
-            self._print_tables()
+            self._show_tables()
             return True
 
         elif command == ".stats":

@@ -1,13 +1,10 @@
 """
 Main database engine that orchestrates tables, storage and queries
 """
-import re
 from table import Table
 from table import Column
-from typing import Any
 from typing import Dict
 from typing import List
-from typing import Union
 from typing import Optional
 from storage import StorageEngine
 from storage import MemoryStorage
@@ -18,8 +15,13 @@ from query_parser import QueryResult
 class Database:
     """Main database engine"""
 
-    def __init__(self, name: str = "pesapal_db", storage_type: str = "file",
-                 data_dir: str = "data", storage_format: str = "json"):
+    def __init__(
+        self,
+        name: str = "pesapal_db",
+        storage_type: str = "file",
+        data_dir: str = "data",
+        storage_format: str = "json",
+    ):
         """
         Initialize database
 
@@ -58,7 +60,9 @@ class Database:
     def _save_table_to_storage(self, table_name: str) -> bool:
         """Save a table to persistent storage"""
         if table_name in self.tables:
-            return self.storage.save_table(table_name, self.tables[table_name].to_dict())
+            return self.storage.save_table(
+                table_name, self.tables[table_name].to_dict()
+            )
         return False
 
     def execute_query(self, query: str) -> QueryResult:
@@ -101,7 +105,7 @@ class Database:
             else:
                 return QueryResult(
                     success=False,
-                    error=f"Unsupported query type: {parsed_query.query_type}"
+                    error=f"Unsupported query type: {parsed_query.query_type}",
                 )
 
         except Exception as e:
@@ -112,18 +116,20 @@ class Database:
         table_name = parsed_query.table_name
 
         if table_name in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' already exists")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' already exists"
+            )
 
         try:
             # Create columns from parsed data
             columns = []
             for col_def in parsed_query.columns:
                 column = Column(
-                    name=col_def['name'],
-                    data_type=col_def['type'],
-                    primary_key=col_def.get('primary_key', False),
-                    unique=col_def.get('unique', False),
-                    nullable=col_def.get('nullable', True)
+                    name=col_def["name"],
+                    data_type=col_def["type"],
+                    primary_key=col_def.get("primary_key", False),
+                    unique=col_def.get("unique", False),
+                    nullable=col_def.get("nullable", True),
                 )
                 columns.append(column)
 
@@ -135,24 +141,28 @@ class Database:
             if self._save_table_to_storage(table_name):
                 return QueryResult(
                     success=True,
-                    message=f"Table '{table_name}' created successfully"
+                    message=f"Table '{table_name}' created successfully",
                 )
 
             else:
                 return QueryResult(
                     success=False,
-                    error=f"Failed to save table '{table_name}' to storage"
+                    error=f"Failed to save table '{table_name}' to storage",
                 )
 
         except Exception as e:
-            return QueryResult(success=False, error=f"Error creating table: {str(e)}")
+            return QueryResult(
+                success=False, error=f"Error creating table: {str(e)}"
+            )
 
     def _execute_insert(self, parsed_query) -> QueryResult:
         """Execute INSERT query"""
         table_name = parsed_query.table_name
 
         if table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' does not exist"
+            )
 
         try:
             table = self.tables[table_name]
@@ -160,7 +170,12 @@ class Database:
             # Insert each row
             rows_inserted = 0
             for row_data in parsed_query.values:
-                table.insert(row_data)
+                if "__values_only__" in row_data:
+                    values_list = row_data["__values_only__"]
+                    mapped_row = dict(zip(table.column_order, values_list))
+                    table.insert(mapped_row)  # Pass properly mapped row
+                else:
+                    table.insert(row_data)  # Already has column names
                 rows_inserted += 1
 
             # Save to storage
@@ -169,7 +184,7 @@ class Database:
             return QueryResult(
                 success=True,
                 rows_affected=rows_inserted,
-                message=f"Inserted {rows_inserted} row(s) into '{table_name}'"
+                message=f"Inserted {rows_inserted} row(s) into '{table_name}'",
             )
 
         except Exception as e:
@@ -180,7 +195,9 @@ class Database:
         table_name = parsed_query.table_name
 
         if table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' does not exist"
+            )
 
         try:
             table = self.tables[table_name]
@@ -192,14 +209,16 @@ class Database:
             # Regular SELECT
             results = table.select(
                 columns=parsed_query.columns,
-                where_clause=parsed_query.where_clause
+                where_clause=parsed_query.where_clause,
             )
 
             return QueryResult(
                 success=True,
                 data=results,
-                columns=parsed_query.columns if parsed_query.columns else table.column_order,
-                rows_affected=len(results)
+                columns=parsed_query.columns
+                if parsed_query.columns
+                else table.column_order,
+                rows_affected=len(results),
             )
 
         except Exception as e:
@@ -211,10 +230,15 @@ class Database:
         right_table_name = parsed_query.join_table
 
         if left_table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{left_table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{left_table_name}' does not exist"
+            )
 
         if right_table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{right_table_name}' does not exist")
+            return QueryResult(
+                success=False,
+                error=f"Table '{right_table_name}' does not exist",
+            )
 
         try:
             left_table = self.tables[left_table_name]
@@ -231,7 +255,9 @@ class Database:
             for left_row in left_rows:
                 for right_row in right_rows:
                     # Check join condition
-                    if self._evaluate_join_condition(left_row, right_row, join_condition):
+                    if self._evaluate_join_condition(
+                        left_row, right_row, join_condition
+                    ):
                         # Combine rows (prefix column names with table names)
                         combined_row = {}
                         for col, val in left_row.items():
@@ -245,12 +271,14 @@ class Database:
             if parsed_query.where_clause:
                 filtered_results = []
                 for row in join_results:
-                    if self._evaluate_where_clause_on_joined_row(row, parsed_query.where_clause):
+                    if self._evaluate_where_clause_on_joined_row(
+                        row, parsed_query.where_clause
+                    ):
                         filtered_results.append(row)
                 join_results = filtered_results
 
             # Project columns
-            if parsed_query.columns and parsed_query.columns != ['*']:
+            if parsed_query.columns and parsed_query.columns != ["*"]:
                 projected_results = []
                 for row in join_results:
                     projected_row = {}
@@ -276,26 +304,32 @@ class Database:
                 success=True,
                 data=join_results,
                 columns=list(join_results[0].keys()) if join_results else [],
-                rows_affected=len(join_results)
+                rows_affected=len(join_results),
             )
 
         except Exception as e:
-            return QueryResult(success=False, error=f"Join query failed: {str(e)}")
+            return QueryResult(
+                success=False, error=f"Join query failed: {str(e)}"
+            )
 
-    def _evaluate_join_condition(self, left_row: Dict, right_row: Dict, condition: Dict) -> bool:
+    def _evaluate_join_condition(
+        self, left_row: Dict, right_row: Dict, condition: Dict
+    ) -> bool:
         """Evaluate JOIN ON condition"""
         if not condition:
             return True  # CROSS JOIN
 
-        left_col = condition.get('left_column')
-        right_col = condition.get('right_column')
+        left_col = condition.get("left_column")
+        right_col = condition.get("right_column")
 
         if left_col and right_col:
             return left_row.get(left_col) == right_row.get(right_col)
 
         return True
 
-    def _evaluate_where_clause_on_joined_row(self, row: Dict, where_clause: Dict) -> bool:
+    def _evaluate_where_clause_on_joined_row(
+        self, row: Dict, where_clause: Dict
+    ) -> bool:
         """Evaluate WHERE clause on a joined row"""
         for col_name, expected_value in where_clause.items():
             # Try exact match first
@@ -323,13 +357,15 @@ class Database:
         table_name = parsed_query.table_name
 
         if table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' does not exist"
+            )
 
         try:
             table = self.tables[table_name]
             rows_updated = table.update(
                 set_values=parsed_query.set_values,
-                where_clause=parsed_query.where_clause
+                where_clause=parsed_query.where_clause,
             )
 
             # Save to storage
@@ -338,7 +374,7 @@ class Database:
             return QueryResult(
                 success=True,
                 rows_affected=rows_updated,
-                message=f"Updated {rows_updated} row(s) in '{table_name}'"
+                message=f"Updated {rows_updated} row(s) in '{table_name}'",
             )
 
         except Exception as e:
@@ -349,7 +385,9 @@ class Database:
         table_name = parsed_query.table_name
 
         if table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' does not exist"
+            )
 
         try:
             table = self.tables[table_name]
@@ -361,7 +399,7 @@ class Database:
             return QueryResult(
                 success=True,
                 rows_affected=rows_deleted,
-                message=f"Deleted {rows_deleted} row(s) from '{table_name}'"
+                message=f"Deleted {rows_deleted} row(s) from '{table_name}'",
             )
 
         except Exception as e:
@@ -372,7 +410,9 @@ class Database:
         table_name = parsed_query.table_name
 
         if table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' does not exist"
+            )
 
         try:
             # Remove from memory
@@ -383,26 +423,27 @@ class Database:
 
             return QueryResult(
                 success=True,
-                message=f"Table '{table_name}' dropped successfully"
+                message=f"Table '{table_name}' dropped successfully",
             )
 
         except Exception as e:
-            return QueryResult(success=False, error=f"Drop table failed: {str(e)}")
+            return QueryResult(
+                success=False, error=f"Drop table failed: {str(e)}"
+            )
 
     def _execute_show_tables(self) -> QueryResult:
         """Execute SHOW TABLES query"""
         tables_info = []
         for table_name, table in self.tables.items():
-            tables_info.append({
-                'table_name': table_name,
-                'row_count': table.get_row_count()
-            })
+            tables_info.append(
+                {"table_name": table_name, "row_count": table.get_row_count()}
+            )
 
         return QueryResult(
             success=True,
             data=tables_info,
-            columns=['table_name', 'row_count'],
-            rows_affected=len(tables_info)
+            columns=["table_name", "row_count"],
+            rows_affected=len(tables_info),
         )
 
     def _execute_describe(self, parsed_query) -> QueryResult:
@@ -410,26 +451,32 @@ class Database:
         table_name = parsed_query.table_name
 
         if table_name not in self.tables:
-            return QueryResult(success=False, error=f"Table '{table_name}' does not exist")
+            return QueryResult(
+                success=False, error=f"Table '{table_name}' does not exist"
+            )
 
         table = self.tables[table_name]
         schema_info = []
 
         for col_name in table.column_order:
             column = table.columns[col_name]
-            schema_info.append({
-                'column_name': column.name,
-                'data_type': column.data_type,
-                'nullable': 'YES' if column.nullable else 'NO',
-                'key': 'PRI' if column.primary_key else ('UNI' if column.unique else ''),
-                'default': None
-            })
+            schema_info.append(
+                {
+                    "column_name": column.name,
+                    "data_type": column.data_type,
+                    "nullable": "YES" if column.nullable else "NO",
+                    "key": "PRI"
+                    if column.primary_key
+                    else ("UNI" if column.unique else ""),
+                    "default": None,
+                }
+            )
 
         return QueryResult(
             success=True,
             data=schema_info,
-            columns=['column_name', 'data_type', 'nullable', 'key', 'default'],
-            rows_affected=len(schema_info)
+            columns=["column_name", "data_type", "nullable", "key", "default"],
+            rows_affected=len(schema_info),
         )
 
     def get_table(self, table_name: str) -> Optional[Table]:
@@ -443,7 +490,7 @@ class Database:
     def get_database_stats(self) -> Dict:
         """Get database statistics"""
         stats = self.storage.get_database_stats()
-        stats['tables_in_memory'] = len(self.tables)
+        stats["tables_in_memory"] = len(self.tables)
         return stats
 
     def backup(self, backup_path: str) -> bool:

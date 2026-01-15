@@ -293,9 +293,7 @@ class QueryParser:
                 row = dict(zip(columns, value_tuple))
             else:
                 # If no columns specified, this will be handled by the table
-                row = {
-                    f"column_{i}": value for i, value in enumerate(value_tuple)
-                }
+                row = {"__values_only__": list(value_tuple)}
             rows.append(row)
 
         return ParsedQuery(

@@ -1,6 +1,11 @@
 """
 Main database engine that orchestrates tables, storage and queries
 """
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent))
+
 from table import Table
 from table import Column
 from typing import Dict

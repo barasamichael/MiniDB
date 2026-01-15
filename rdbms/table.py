@@ -2,7 +2,7 @@
 Table implementation for simple RDBMS
 Handles schema definition, data validation, and basic operations
 """
-
+import re
 from typing import Any
 from typing import Dict
 from typing import List
@@ -207,12 +207,8 @@ class Table:
         if columns == ["*"]:
             columns = self.column_order
 
-        # Validate where clause columns
         if where_clause is not None:
-            for column_name in where_clause.keys():
-                if column_name not in self.columns:
-                    raise ValueError(
-                        f"Unknown column in WHERE clause: {column_name}")
+            self._validate_where_clause_columns(where_clause)
 
         # Get matching rows
         matching_rows = []
@@ -223,6 +219,27 @@ class Table:
                 matching_rows.append(projected_row)
 
         return matching_rows
+
+    def _validate_where_clause_columns(self, where_clause: Dict[str, Any]):
+        """Validate that all columns in WHERE clause exist in table"""
+        if "type" not in where_clause:
+            # Old simple format: {'column': value}
+            for column_name in where_clause.keys():
+                if column_name not in self.columns:
+                    raise ValueError(
+                        f"Unknown column in WHERE clause: {column_name}"
+                    )
+        else:
+            # New structured format: validate recursively
+            if where_clause["type"] in ["AND", "OR"]:
+                for condition in where_clause["conditions"]:
+                    self._validate_where_clause_columns(condition)
+            elif where_clause["type"] == "CONDITION":
+                column = where_clause["column"]
+                if column not in self.columns:
+                    raise ValueError(
+                        f"Unknown column in WHERE clause: {column}"
+                    )
 
     def update(
         self,
@@ -288,17 +305,104 @@ class Table:
         if where_clause is None:
             return True
 
-        for column_name, expected_value in where_clause.items():
-            if column_name not in self.columns:
-                raise ValueError(
-                    f"Unknown column in WHERE clause: {column_name}"
-                )
+        # Handle old simple format for backwards compatibility
+        if "type" not in where_clause:
+            # Old format: {'column': value, 'column2': value2}
+            for col_name, expected_value in where_clause.items():
+                actual_value = row.get(col_name)
+                if actual_value != expected_value:
+                    return False
+            return True
 
-            actual_value = row.get(column_name)
-            if actual_value != expected_value:
+        # New format: structured conditions
+        return self._evaluate_where_condition(row, where_clause)
+
+    def _evaluate_where_condition(
+        self, row: Dict[str, Any], condition: Dict[str, Any]
+    ) -> bool:
+        """Evaluate a WHERE condition against a row"""
+        if condition["type"] == "AND":
+            # All conditions must be true
+            return all(
+                self._evaluate_where_condition(row, cond)
+                for cond in condition["conditions"]
+            )
+
+        elif condition["type"] == "OR":
+            # Any condition must be true
+            return any(
+                self._evaluate_where_condition(row, cond)
+                for cond in condition["conditions"]
+            )
+
+        elif condition["type"] == "CONDITION":
+            return self._evaluate_single_condition(row, condition)
+
+        return False
+
+    def _evaluate_single_condition(
+        self, row: Dict[str, Any], condition: Dict[str, Any]
+    ) -> bool:
+        """Evaluate a single condition like age > 25"""
+        column = condition["column"]
+        operator = condition["operator"]
+        expected_value = condition["value"]
+
+        actual_value = row.get(column)
+
+        if operator == "EQ":
+            return actual_value == expected_value
+
+        elif operator == "NE":
+            return actual_value != expected_value
+
+        elif operator == "GT":
+            return (
+                actual_value is not None
+                and expected_value is not None
+                and actual_value > expected_value
+            )
+
+        elif operator == "GTE":
+            return (
+                actual_value is not None
+                and expected_value is not None
+                and actual_value >= expected_value
+            )
+
+        elif operator == "LT":
+            return (
+                actual_value is not None
+                and expected_value is not None
+                and actual_value < expected_value
+            )
+
+        elif operator == "LTE":
+            return (
+                actual_value is not None
+                and expected_value is not None
+                and actual_value <= expected_value
+            )
+
+        elif operator == "LIKE":
+            # Simple LIKE implementation (% as wildcard)
+            if actual_value is None or expected_value is None:
                 return False
+            pattern = str(expected_value).replace("%", ".*").replace("_", ".")
+            return (
+                re.match(f"^{pattern}$", str(actual_value), re.IGNORECASE)
+                is not None
+            )
+        elif operator == "IN":
+            return actual_value in expected_value
 
-        return True
+        elif operator == "IS_NULL":
+            return actual_value is None
+
+        elif operator == "IS_NOT_NULL":
+            return actual_value is not None
+
+        return False
 
     @classmethod
     def from_dict(cls, data: Dict):

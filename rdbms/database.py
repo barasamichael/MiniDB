@@ -217,12 +217,14 @@ class Database:
                 where_clause=parsed_query.where_clause,
             )
 
+            actual_columns = parsed_query.columns
+            if parsed_query.columns == ["*"] or parsed_query.columns is None:
+                actual_columns = table.column_order
+
             return QueryResult(
                 success=True,
                 data=results,
-                columns=parsed_query.columns
-                if parsed_query.columns
-                else table.column_order,
+                columns=actual_columns,
                 rows_affected=len(results),
             )
 
@@ -238,7 +240,6 @@ class Database:
             return QueryResult(
                 success=False, error=f"Table '{left_table_name}' does not exist"
             )
-
         if right_table_name not in self.tables:
             return QueryResult(
                 success=False,
@@ -259,7 +260,7 @@ class Database:
 
             for left_row in left_rows:
                 for right_row in right_rows:
-                    # Check join condition
+                    # Check join condition - FIXED: Only join matching rows
                     if self._evaluate_join_condition(
                         left_row, right_row, join_condition
                     ):
@@ -290,7 +291,6 @@ class Database:
                     for col in parsed_query.columns:
                         if col in row:
                             projected_row[col] = row[col]
-
                         else:
                             # Try to find column without table prefix
                             found = False
@@ -299,7 +299,6 @@ class Database:
                                     projected_row[col] = row[full_col]
                                     found = True
                                     break
-
                             if not found:
                                 projected_row[col] = None
                     projected_results.append(projected_row)
@@ -328,7 +327,9 @@ class Database:
         right_col = condition.get("right_column")
 
         if left_col and right_col:
-            return left_row.get(left_col) == right_row.get(right_col)
+            left_value = left_row.get(left_col)
+            right_value = right_row.get(right_col)
+            return left_value == right_value and left_value is not None
 
         return True
 

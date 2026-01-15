@@ -112,9 +112,20 @@ class QueryParser:
         if not query:
             raise ValueError("Empty query")
 
+        lines = query.split("\n")
+        cleaned_lines = []
+        for line in lines:
+            if "--" in line:
+                line = line[: line.index("--")]
+            cleaned_lines.append(line)
+        query = "\n".join(cleaned_lines).strip()
+
         # Remove trailing semicolon
         if query.endswith(";"):
             query = query[:-1]
+
+        if not query:
+            raise ValueError("Empty query after removing comments")
 
         # Normalize whitespace and convert to uppercase for parsing
         normalized_query = " ".join(query.split())
@@ -151,7 +162,7 @@ class QueryParser:
             return self._parse_drop_table(normalized_query)
 
         elif query_upper == "SHOW TABLES":
-            return ParsedQuery(query_type="SHOW TABLES")
+            return ParsedQuery(query_type="SHOW_TABLES")
 
         elif query_upper.startswith("DESCRIBE") or query_upper.startswith(
             "DESC"
@@ -427,10 +438,18 @@ class QueryParser:
                 "right_column": match.group(4),
             }
 
+        # Also handle simple column = column (without table prefixes)
+        simple_match = re.match(r"(\w+)\s*=\s*(\w+)", join_on.strip())
+        if simple_match:
+            return {
+                "left_column": simple_match.group(1),
+                "right_column": simple_match.group(2),
+            }
+
         return {}
 
     def _parse_where_clause(self, query: str) -> Optional[Dict[str, Any]]:
-        """Parse WHERE clause (basic implementation)"""
+        """Parse WHERE clause with support for operators and logical conditions"""
         where_match = re.search(
             r"WHERE (.+?)(?:\s+ORDER\s+BY|\s+LIMIT|\s+GROUP\s+BY|$)",
             query,
@@ -441,22 +460,86 @@ class QueryParser:
 
         where_str = where_match.group(1).strip()
 
-        # Simple implementation: only handle AND conditions with equals
-        conditions = {}
+        # Parse the WHERE clause into a structured format
+        return self._parse_where_expression(where_str)
 
-        # Split by AND
-        and_parts = re.split(r"\s+AND\s+", where_str, flags=re.IGNORECASE)
+    def _parse_where_expression(self, where_str: str) -> Dict[str, Any]:
+        """Parse WHERE expression with operators and logical conditions"""
+        # Handle AND/OR logic (simple left-to-right evaluation)
+        if " OR " in where_str.upper():
+            parts = re.split(r"\s+OR\s+", where_str, flags=re.IGNORECASE)
+            return {
+                "type": "OR",
+                "conditions": [
+                    self._parse_where_expression(part.strip()) for part in parts
+                ],
+            }
 
-        for part in and_parts:
-            # Handle simple equality: column = value
-            eq_match = re.match(r"(\w+(?:\.\w+)?)\s*=\s*(.+)", part.strip())
-            if eq_match:
-                col_name = eq_match.group(1)
-                value_str = eq_match.group(2).strip()
-                value = self._parse_value(value_str)
-                conditions[col_name] = value
+        if " AND " in where_str.upper():
+            parts = re.split(r"\s+AND\s+", where_str, flags=re.IGNORECASE)
+            return {
+                "type": "AND",
+                "conditions": [
+                    self._parse_where_expression(part.strip()) for part in parts
+                ],
+            }
 
-        return conditions if conditions else None
+        # Parse single condition with operators
+        return self._parse_single_condition(where_str.strip())
+
+    def _parse_single_condition(self, condition: str) -> Dict[str, Any]:
+        """Parse a single condition like 'age > 25' or 'name = John'"""
+        # Define operator patterns (order matters - check >= before >)
+        operators = [
+            (r"(\w+(?:\.\w+)?)\s*>=\s*(.+)", "GTE"),
+            (r"(\w+(?:\.\w+)?)\s*<=\s*(.+)", "LTE"),
+            (r"(\w+(?:\.\w+)?)\s*!=\s*(.+)", "NE"),
+            (r"(\w+(?:\.\w+)?)\s*<>\s*(.+)", "NE"),
+            (r"(\w+(?:\.\w+)?)\s*>\s*(.+)", "GT"),
+            (r"(\w+(?:\.\w+)?)\s*<\s*(.+)", "LT"),
+            (r"(\w+(?:\.\w+)?)\s*=\s*(.+)", "EQ"),
+            (r"(\w+(?:\.\w+)?)\s+LIKE\s+(.+)", "LIKE"),
+            (r"(\w+(?:\.\w+)?)\s+IN\s*\(([^)]+)\)", "IN"),
+            (r"(\w+(?:\.\w+)?)\s+IS\s+NULL", "IS_NULL"),
+            (r"(\w+(?:\.\w+)?)\s+IS\s+NOT\s+NULL", "IS_NOT_NULL"),
+        ]
+
+        for pattern, op_type in operators:
+            match = re.match(pattern, condition, re.IGNORECASE)
+            if match:
+                column = match.group(1)
+
+                if op_type in ["IS_NULL", "IS_NOT_NULL"]:
+                    return {
+                        "type": "CONDITION",
+                        "column": column,
+                        "operator": op_type,
+                        "value": None,
+                    }
+                elif op_type == "IN":
+                    # Parse IN clause values
+                    values_str = match.group(2)
+                    values = [
+                        self._parse_value(v.strip())
+                        for v in values_str.split(",")
+                    ]
+                    return {
+                        "type": "CONDITION",
+                        "column": column,
+                        "operator": op_type,
+                        "value": values,
+                    }
+                else:
+                    value = self._parse_value(match.group(2))
+                    return {
+                        "type": "CONDITION",
+                        "column": column,
+                        "operator": op_type,
+                        "value": value,
+                    }
+
+        # If no pattern matched, raise error
+        raise ValueError(f"Invalid WHERE condition: {condition}")
 
     def _parse_update(self, query: str) -> ParsedQuery:
         """Parse UPDATE statement"""

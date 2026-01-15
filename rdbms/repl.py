@@ -4,6 +4,7 @@ Command-line interface for executing SQL queries
 """
 
 import sys
+import os
 import readline
 import argparse
 from pathlib import Path
@@ -35,6 +36,10 @@ class RDBMS_REPL:
         self.database = Database(database_name, storage_type, data_dir)
         self.parser = QueryParser()
         self.running = True
+
+        # Multi-line input support
+        self.multi_line_buffer = []
+        self.in_multi_line = False
 
         # Setup readline for command history
         self.history_file = Path.home() / ".pesapal_rdbms_history"
@@ -68,6 +73,11 @@ class RDBMS_REPL:
         except Exception:
             pass
 
+    def _clear_screen(self):
+        """Clear the terminal screen"""
+        # Clear screen for both Windows and Unix-like systems
+        os.system("cls" if os.name == "nt" else "clear")
+
     def _print_welcome(self):
         """Print welcome message"""
         print("=" * 60)
@@ -82,7 +92,12 @@ class RDBMS_REPL:
         print("  .stats    - Show database statistics")
         print("  .backup   - Create database backup")
         print("  .restore  - Restore from backup")
+        print("  .history  - Show command history")
+        print("  .clear    - Clear screen")
         print("  .exit     - Exit REPL")
+        print(
+            "\nMulti-line mode: End commands with semicolon (;) or type 'GO' on new line"
+        )
         print("=" * 60)
 
     def _print_help(self):
@@ -112,7 +127,14 @@ class RDBMS_REPL:
         print("  .stats    - Database statistics")
         print("  .backup <path>   - Backup database")
         print("  .restore <path>  - Restore database")
+        print("  .history  - Show command history")
+        print("  .clear    - Clear screen")
         print("  .exit     - Exit REPL")
+
+        print("\nMulti-line Input:")
+        print("  Commands can span multiple lines")
+        print("  End with semicolon (;) or type 'GO' on new line")
+        print("  Use Ctrl+C to cancel multi-line input")
 
         print("\nExamples:")
         print("  CREATE TABLE users (id INT PRIMARY KEY, name TEXT NOT NULL);")
@@ -120,6 +142,63 @@ class RDBMS_REPL:
         print("  SELECT * FROM users WHERE id = 1;")
         print("  UPDATE users SET name = 'Johnny' WHERE id = 1;")
         print("-" * 40)
+
+    def _show_history(self):
+        """Show command history"""
+        try:
+            history_length = readline.get_current_history_length()
+            if history_length == 0:
+                print("No command history available.")
+                return
+
+            print(
+                f"\nCommand History (last {min(20, history_length)} commands):"
+            )
+            print("-" * 50)
+
+            # Show last 20 commands
+            start_idx = max(1, history_length - 19)
+            for i in range(start_idx, history_length + 1):
+                try:
+                    cmd = readline.get_history_item(i)
+                    # Don't show .history commands
+                    if cmd and not cmd.startswith(".history"):
+                        print(f"  {i:3d}: {cmd}")
+                except:
+                    continue
+
+            print("-" * 50)
+
+        except Exception as e:
+            print(f"Error retrieving history: {e}")
+
+    def _is_command_complete(self, command: str) -> bool:
+        """Check if a command is complete (ends with semicolon or is a single-line command)"""
+        command = command.strip()
+
+        # Empty command is not complete
+        if not command:
+            return False
+
+        # REPL commands are always complete
+        if command.startswith("."):
+            return True
+
+        # Check for semicolon at the end
+        if command.endswith(";"):
+            return True
+
+        # Check for 'GO' keyword (SQL Server style)
+        lines = command.split("\n")
+        if len(lines) > 1 and lines[-1].strip().upper() == "GO":
+            return True
+
+        # Some single-line commands that don't need semicolons
+        single_line_commands = ["SHOW TABLES", "GO"]
+        if command.upper() in single_line_commands:
+            return True
+
+        return False
 
     def _handle_repl_command(self, command: str) -> bool:
         """
@@ -142,24 +221,28 @@ class RDBMS_REPL:
             self._show_stats()
             return True
 
+        elif command == ".history":
+            self._show_history()
+            return True
+
+        elif command == ".clear":
+            self._clear_screen()
+            return True
+
         elif command.startswith(".backup"):
             parts = command.split(maxsplit=1)
             if len(parts) > 1:
                 self._backup_database(parts[1])
-
             else:
                 print("Usage: .backup <path>")
-
             return True
 
         elif command.startswith(".restore"):
             parts = command.split(maxsplit=1)
             if len(parts) > 1:
                 self._restore_database(parts[1])
-
             else:
                 print("Usage: .restore <path>")
-
             return True
 
         elif command in [".exit", ".quit"]:
@@ -179,7 +262,6 @@ class RDBMS_REPL:
                 row_count = table.get_row_count() if table else 0
                 print(f"  {i}. {table_name} ({row_count} rows)")
             print("-" * 30)
-
         else:
             print("No tables found")
 
@@ -204,10 +286,8 @@ class RDBMS_REPL:
         try:
             if self.database.backup(backup_path):
                 print(f"Database backed up to: {backup_path}")
-
             else:
                 print(f"Failed to backup database to: {backup_path}")
-
         except Exception as e:
             print(f"Backup error: {e}")
 
@@ -216,10 +296,8 @@ class RDBMS_REPL:
         try:
             if self.database.restore(backup_path):
                 print(f"Database restored from: {backup_path}")
-
             else:
                 print(f"Failed to restore database from: {backup_path}")
-
         except Exception as e:
             print(f"Restore error: {e}")
 
@@ -228,12 +306,16 @@ class RDBMS_REPL:
         self.database.close()
         self._save_history()
         print("Goodbye!")
-
         self.running = False
 
     def _execute_sql_query(self, query: str):
         """Execute SQL query and display results"""
         try:
+            # Clean up the query (remove GO keyword and extra whitespace)
+            query = query.strip()
+            if query.upper().endswith("GO"):
+                query = query[:-2].strip()
+
             result = self.database.execute_query(query)
 
             if result.success:
@@ -241,54 +323,110 @@ class RDBMS_REPL:
                     # Format and display results in a nice table
                     formatted_result = self.parser.format_query_result(result)
                     print(f"\n{formatted_result}")
-
                 elif result.message:
                     print(f"{result.message}")
-
                 else:
                     print("Query executed successfully")
-
             else:
                 print(f"Error: {result.error}")
 
         except Exception as e:
             print(f"Unexpected error: {e}")
 
-    def _get_input(self) -> str:
+    def _get_input(self, prompt: str = "pesapal_rdbms> ") -> str:
         """Get input from user with prompt"""
         try:
-            return input("pesapal_rdbms> ")
-
+            return input(prompt)
         except EOFError:
             # Handle Ctrl+D
             self._exit_repl()
             return ""
-
         except KeyboardInterrupt:
             # Handle Ctrl+C
-            print("\n(Use .exit to quit)")
-            return ""
+            if self.in_multi_line:
+                print("\n(Multi-line input cancelled)")
+                self.multi_line_buffer = []
+                self.in_multi_line = False
+                return ""
+            else:
+                print("\n(Use .exit to quit)")
+                return ""
+
+    def _handle_multi_line_input(self, line: str) -> str:
+        """Handle multi-line input and return complete command when ready"""
+        # If we're not in multi-line mode, check if we should enter it
+        if not self.in_multi_line:
+            if self._is_command_complete(line):
+                return line  # Single line command, return as-is
+            else:
+                # Enter multi-line mode
+                self.in_multi_line = True
+                self.multi_line_buffer = [line]
+                return ""  # Not ready yet
+
+        # We're in multi-line mode
+        if line.strip().upper() == "GO" or line.strip() == "":
+            # Check if current buffer forms a complete command
+            current_command = "\n".join(self.multi_line_buffer)
+            # Add semicolon for completion check
+            if self._is_command_complete(current_command + ";"):
+                complete_command = current_command
+                self.multi_line_buffer = []
+                self.in_multi_line = False
+                return complete_command
+
+        # Add line to buffer
+        self.multi_line_buffer.append(line)
+
+        # Check if the complete buffer is now a finished command
+        current_command = "\n".join(self.multi_line_buffer)
+        if self._is_command_complete(current_command):
+            complete_command = current_command
+            self.multi_line_buffer = []
+            self.in_multi_line = False
+            return complete_command
+
+        return ""  # Not ready yet
 
     def run(self):
+        """Main REPL loop"""
         while self.running:
             try:
-                # Get user input
-                user_input = self._get_input().strip()
+                # Determine the prompt based on multi-line state
+                if self.in_multi_line:
+                    prompt = "        ...> "  # Continuation prompt
+                else:
+                    prompt = "pesapal_rdbms> "
 
-                # Skip empty input
-                if not user_input:
+                # Get user input
+                user_input = self._get_input(prompt)
+
+                # Handle multi-line input
+                complete_command = self._handle_multi_line_input(user_input)
+
+                # If we don't have a complete command yet, continue
+                if not complete_command:
+                    continue
+
+                # Skip empty commands
+                if not complete_command.strip():
                     continue
 
                 # Handle REPL commands
-                if user_input.startswith("."):
-                    self._handle_repl_command(user_input)
+                if complete_command.startswith("."):
+                    self._handle_repl_command(complete_command)
                     continue
 
                 # Handle SQL queries
-                self._execute_sql_query(user_input)
+                self._execute_sql_query(complete_command)
 
             except KeyboardInterrupt:
-                print("\n(Use .exit to quit)")
+                if self.in_multi_line:
+                    print("\n(Multi-line input cancelled)")
+                    self.multi_line_buffer = []
+                    self.in_multi_line = False
+                else:
+                    print("\n(Use .exit to quit)")
                 continue
 
             except Exception as e:

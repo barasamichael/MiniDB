@@ -1,0 +1,54 @@
+{
+  "name": "users",
+  "columns": [
+    {
+      "name": "id",
+      "data_type": "INT",
+      "primary_key": true,
+      "unique": false,
+      "nullable": false
+    },
+    {
+      "name": "username",
+      "data_type": "TEXT",
+      "primary_key": false,
+      "unique": true,
+      "nullable": false
+    },
+    {
+      "name": "email",
+      "data_type": "TEXT",
+      "primary_key": false,
+      "unique": true,
+      "nullable": false
+    },
+    {
+      "name": "age",
+      "data_type": "INT",
+      "primary_key": false,
+      "unique": false,
+      "nullable": true
+    },
+    {
+      "name": "active",
+      "data_type": "BOOLEAN",
+      "primary_key": false,
+      "unique": false,
+      "nullable": true
+    }
+  ],
+  "column_order": [
+    "id",
+    "username",
+    "email",
+    "age",
+    "active"
+  ],
+  "rows": [],
+  "primary_key": "id",
+  "unique_columns": [
+    "id",
+    "email",
+    "username"
+  ]
+}

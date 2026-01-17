@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent))
 
-from database import Database
-from query_parser import QueryParser
+from database import Database  # noqa
+from query_parser import QueryParser  # noqa
 
 
 class RDBMS_REPL:

@@ -1,5 +1,5 @@
 """
-Comprehensive automated tests for the table module
+Automated tests for the table module
 Tests Column and Table classes with all functionality
 """
 
@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from rdbms.table import Table
-from rdbms.table import Column
+from rdbms.table import Table  # noqa
+from rdbms.table import Column  # noqa
 
 
 class TestColumn:
@@ -27,8 +27,7 @@ class TestColumn:
 
     def test_column_creation_with_constraints(self):
         """Test column creation with constraints"""
-        col = Column("id", "INT", primary_key=True,
-                     unique=True, nullable=False)
+        col = Column("id", "INT", primary_key=True, unique=True, nullable=False)
         assert col.name == "id"
         assert col.data_type == "INT"
         assert col.primary_key == True
@@ -404,11 +403,13 @@ class TestTable:
     def test_data_type_conversion_edge_cases(self):
         """Test edge cases in data type conversion"""
         # Insert with type conversion
-        self.table.insert({
-            "id": "123",  # String to int
-            "name": 456,  # Int to string
-            "age": 25.7  # Float to int (should truncate)
-        })
+        self.table.insert(
+            {
+                "id": "123",  # String to int
+                "name": 456,  # Int to string
+                "age": 25.7,  # Float to int (should truncate)
+            }
+        )
 
         row = self.table.rows[0]
         assert row["id"] == 123

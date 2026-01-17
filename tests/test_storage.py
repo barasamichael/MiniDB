@@ -1,5 +1,5 @@
 """
-Comprehensive automated tests for the storage module
+Automated tests for the storage module
 Tests StorageEngine and MemoryStorage classes with all functionality
 """
 
@@ -13,8 +13,8 @@ from pathlib import Path
 # Add the parent directory to the path to import the rdbms module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from rdbms.storage import StorageEngine
-from rdbms.storage import MemoryStorage
+from rdbms.storage import StorageEngine # noqa
+from rdbms.storage import MemoryStorage # noqa
 
 
 class TestStorageEngine:

@@ -6,15 +6,15 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent))
 
-from table import Table
-from table import Column
-from typing import Dict
-from typing import List
-from typing import Optional
-from storage import StorageEngine
-from storage import MemoryStorage
-from query_parser import QueryParser
-from query_parser import QueryResult
+from table import Table  # noqa
+from table import Column  # noqa
+from typing import Dict  # noqa
+from typing import List  # noqa
+from typing import Optional  # noqa
+from storage import StorageEngine  # noqa
+from storage import MemoryStorage  # noqa
+from query_parser import QueryParser  # noqa
+from query_parser import QueryResult  # noqa
 
 
 class Database:

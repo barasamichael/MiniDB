@@ -1,5 +1,5 @@
 """
-Comprehensive automated tests for the query_parser module
+Automated tests for the query_parser module
 Tests QueryParser, ParsedQuery, and QueryResult classes with all functionality
 """
 
@@ -10,9 +10,9 @@ import pytest
 # Add the parent directory to the path to import the rdbms module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from rdbms.query_parser import QueryResult
-from rdbms.query_parser import ParsedQuery
-from rdbms.query_parser import QueryParser
+from rdbms.query_parser import QueryResult  # noqa
+from rdbms.query_parser import ParsedQuery  # noqa
+from rdbms.query_parser import QueryParser  # noqa
 
 
 class TestParsedQuery:

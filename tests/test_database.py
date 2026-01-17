@@ -1,5 +1,5 @@
 """
-Comprehensive automated tests for the database module
+Automated tests for the database module
 Tests Database class with all functionality including SQL execution
 """
 
@@ -13,9 +13,10 @@ from unittest.mock import patch
 # Add the parent directory to the path to import the rdbms module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from rdbms.query_parser import QueryResult
-from rdbms.query_parser import ParsedQuery
-from rdbms.database import Database
+from rdbms.database import Database  # noqa
+from rdbms.query_parser import QueryResult  # noqa
+from rdbms.query_parser import ParsedQuery  # noqa
+
 
 class TestDatabase:
     """Test cases for the Database class"""

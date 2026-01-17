@@ -1,5 +1,5 @@
 """
-Comprehensive automated tests for the repl module
+Automated tests for the repl module
 Tests RDBMS_REPL class with all functionality including mocked I/O
 """
 
@@ -8,16 +8,15 @@ import sys
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import call
 from unittest.mock import Mock
 from unittest.mock import patch
 
 # Add the parent directory to the path to import the rdbms module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from rdbms.repl import main
-from rdbms.repl import RDBMS_REPL
-from rdbms.query_parser import QueryResult
+from rdbms.repl import main  # noqa
+from rdbms.repl import RDBMS_REPL  # noqa
+from rdbms.query_parser import QueryResult  # noqa
 
 
 class TestRDBMS_REPL:
